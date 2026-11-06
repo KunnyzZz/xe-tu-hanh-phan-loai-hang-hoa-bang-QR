@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XE-QR | Giám sát</title>
+<style>
+  :root { --bg1:#22364a; --bg2:#0e1822; --screen:#1c2d3e; --panel:#233a4e; --head:#2e475d; --line:#3d566c; --ink:#e4edf3; --mute:#93a9ba;
+          --steel1:#7a96ab; --steel2:#47657b; --card:#8da1af; --cardink:#10202c; --run:#1e9ad6; --ok:#4caf6e; --bad:#d9534f;
+          --a:#1f9d8f; --b:#d98a1a; --warn:#e8b23a; --paper:#e8eef2; }
+  * { box-sizing:border-box; }
+  body { margin:0; height:100vh; padding:14px; background:radial-gradient(ellipse at 50% 30%, var(--bg1), var(--bg2) 75%);
+         color:var(--ink); font:13px/1.4 "Segoe UI", system-ui, sans-serif; font-variant-numeric:tabular-nums; }
+  button { font:inherit; cursor:pointer; }
+  :focus-visible { outline:2px solid #f3c53d; outline-offset:1px; }
+
+  /* khung kim loại + màn hình */
+  .bezel { height:100%; max-width:1280px; margin:0 auto; padding:12px; border-radius:20px;
+           background:linear-gradient(145deg,#f4f6f8,#a7b3bd 45%,#e6ebee 70%,#98a5b0); box-shadow:0 10px 40px #000a, inset 0 0 0 2px #fff8; }
+  .screen { height:100%; display:flex; flex-direction:column; background:var(--screen); border-radius:8px; padding:8px 12px; overflow:hidden; box-shadow:inset 0 0 0 2px #0b141c; }
+
+  header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1px solid var(--line);
+           background:linear-gradient(180deg,var(--steel1),var(--steel2)); }
+  header h1 { margin:0; font-size:19px; letter-spacing:.03em; text-transform:uppercase; }
+  header small { display:block; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:#d3e0ea; }
+  .hr { text-align:right; font-size:10px; letter-spacing:.06em; text-transform:uppercase; }
+  #clock { display:block; font-size:12px; letter-spacing:.04em; }
+
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; background:#5c6e7c; vertical-align:middle; margin-right:6px; box-shadow:inset 0 0 0 1px #0004; }
+  .dot.ok { background:var(--ok); box-shadow:0 0 6px var(--ok); } .dot.bad { background:#ff4d47; box-shadow:0 0 6px #ff4d47; }
+  .dot.blink { animation:blink .7s steps(2,start) infinite; }
+  .dot.run { background:#35b8ff; box-shadow:0 0 6px #35b8ff; } .dot.warn { background:var(--warn); box-shadow:0 0 6px var(--warn); }
+
+  #alarm { display:none; align-items:center; gap:14px; margin-top:8px; padding:6px 12px; background:var(--bad); color:#fff; font-weight:600; border:1px solid #7d1f1c; }
+  #alarm.show { display:flex; animation:flash 1s steps(2,start) infinite; }
+  #alarm button { margin-left:auto; padding:2px 12px; background:linear-gradient(#fff,#ccd5dc); color:#7d1f1c; border:1px solid #7d1f1c; border-radius:3px; font-weight:700; }
+  @keyframes flash { 50% { background:#8e1d15; } }
+
+  .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:10px 0; }
+  .card { padding:8px 12px; background:linear-gradient(180deg,#9aadba,#7f94a3); color:var(--cardink); border:1px solid #5d7384; border-radius:3px; }
+  .card b { display:block; font-size:10px; letter-spacing:.08em; text-transform:uppercase; }
+  .card span { font-size:12px; }
+
+  .tabs { display:flex; gap:6px; padding:8px 0; border-top:1px solid var(--line); }
+  .tabs button { padding:7px 14px; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:#243645; background:linear-gradient(#f3f6f8,#cfd8de); border:1px solid #8fa0ad; border-radius:3px; }
+  .tabs button[aria-current="page"] { color:#fff; background:linear-gradient(#35b0ea,#1783bd); border-color:#f3c53d; box-shadow:0 0 0 1px #f3c53d; }
+
+  main { flex:1; min-height:0; overflow:auto; padding-top:2px; }
+  .page { display:none; } .page.on { display:grid; }
+
+  .panel { display:flex; flex-direction:column; min-height:0; background:var(--panel); border:1px solid var(--line); }
+  .panel > h2 { margin:0; padding:7px 12px; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; background:var(--head); border-bottom:1px solid var(--line); display:flex; justify-content:space-between; }
+  .panel > h2 em { font-style:normal; color:var(--mute); }
+  .body { padding:10px 12px; flex:1; min-height:0; }
+  .big { font-size:48px; font-weight:700; line-height:1.05; } .big.A { color:#3fd6c6; } .big.B { color:#f5ae3b; }
+  .sub { color:var(--mute); font-size:11px; margin-top:4px; }
+
+  #page-overview { height:100%; gap:10px; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); grid-template-rows:minmax(0,1fr) auto; }
+  #map-panel .body { padding:10px; display:flex; }
+  #map-wrap { flex:1; min-height:0; background:linear-gradient(180deg,#f6f9fb,#d3dde4); border:1px solid #9fb0bd; border-radius:4px; display:flex; }
+  #map { width:100%; height:100%; display:block; }
+  .side { display:grid; gap:10px; align-content:start; grid-template-rows:auto auto 1fr; min-height:0; }
+  #events { grid-column:1 / -1; } #events .body { padding:0; }
+
+  .btn { display:block; width:100%; padding:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#fff; border:1px solid #0006; border-radius:3px; }
+  #stop { background:linear-gradient(#d9726e,#b2423e); } #stop:hover { filter:brightness(1.12); }
+  .hint { margin-top:8px; font-size:10px; color:var(--mute); }
+  .lamp { display:flex; align-items:center; gap:4px; padding:5px 0; font-size:13px; color:var(--mute); } .lamp b { color:var(--ink); min-width:60px; }
+  .lamp .dot { width:11px; height:11px; }
+
+  /* bản đồ (nền sáng như sơ đồ băng tải) */
+  .tape { fill:none; stroke:#27394a; stroke-width:4; stroke-linejoin:round; }
+  .corner { fill:#fff; stroke:#27394a; stroke-width:2; } .corner.done { fill:var(--ok); stroke:#2d7a47; }
+  .bin { fill:#fff; stroke:#27394a; stroke-width:2; } .bin.A.on { fill:var(--a); stroke:#136a60; } .bin.B.on { fill:var(--b); stroke:#9a600b; }
+  .bin.blink { animation:blink .7s steps(2,start) infinite; } @keyframes blink { 50% { opacity:.3; } }
+  .binlbl { font-size:16px; font-weight:700; fill:#27394a; text-anchor:middle; } .bin.on + .binlbl { fill:#fff; }
+  .halo { fill:none; stroke:var(--run); stroke-width:2; opacity:.7; }
+  #carbody rect, #carbody path { fill:#1e78b4; stroke:#0c2a3e; stroke-width:1.5; }
+  #car.err #carbody rect, #car.err #carbody path { fill:var(--bad); } #car.err .halo { stroke:var(--bad); }
+  #car.off { opacity:.4; }
+
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th, td { text-align:left; padding:5px 12px; border-bottom:1px solid var(--line); }
+  th { color:var(--mute); font-weight:600; font-size:10px; letter-spacing:.08em; text-transform:uppercase; background:var(--head); }
+  td:first-child { white-space:nowrap; font:12px ui-monospace, Consolas, monospace; color:var(--mute); width:90px; } td:nth-child(2) { width:90px; }
+  tr.warn td:nth-child(2) { color:var(--warn); font-weight:600; } tr.err td { color:#ff7f78; font-weight:600; }
+  label { color:var(--mute); }
+
+  #page-log { gap:10px; align-content:start; } .kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; } .kpis .big { font-size:40px; }
+
+  footer { display:flex; justify-content:space-between; gap:12px; padding:6px 2px 0; font-size:10px; }
+  #foot { color:var(--mute); } #foot.bad { color:#ff7f78; } 
+
+  @media (max-width:900px) {
+    body { height:auto; padding:6px; } .bezel { height:auto; padding:6px; } .screen { height:auto; }
+    .cards { grid-template-columns:1fr 1fr; } #page-overview { height:auto; grid-template-columns:1fr; grid-template-rows:auto; } #map-wrap { aspect-ratio:420/320; } #events { grid-column:auto; } .kpis { grid-template-columns:1fr; }
+  }
+  @media (prefers-reduced-motion:reduce) { #alarm.show, .bin.blink, .dot.blink { animation:none; } }
+</style>
+</head>
+<body>
+<div class="bezel"><div class="screen">
+  <header>
+    <div><h1>Xe phân loại hàng</h1><small>Giám sát hành trình &amp; điều khiển</small></div>
+    <div class="hr"><span id="clock"></span><span><span class="dot" id="dot-web"></span><span id="web-txt">Mất kết nối web</span></span></div>
+  </header>
+  <div id="alarm" role="alert"><span id="alarm-txt"></span><button id="ack">Xác nhận</button></div>
+
+  <div class="cards">
+    <div class="card"><b>Server</b><span><span class="dot" id="d-srv"></span><span id="c-srv">—</span></span></div>
+    <div class="card"><b>ESP32</b><span><span class="dot" id="d-esp"></span><span id="c-esp">—</span></span></div>
+    <div class="card"><b>Trạng thái xe</b><span><span class="dot" id="d-car"></span><span id="c-car">—</span></span></div>
+    <div class="card"><b>Giai đoạn</b><span id="c-ph">—</span></div>
+  </div>
+
+  <nav class="tabs" aria-label="Trang">
+    <button data-page="overview">Giám sát</button>
+    <button data-page="log">Nhật ký</button>
+  </nav>
+
+  <main>
+    <section class="page" id="page-overview">
+      <div class="panel" id="map-panel"><h2>Bản đồ đường chạy <em id="map-lot">—</em></h2><div class="body"><div id="map-wrap">
+        <svg id="map" viewBox="0 0 420 320" role="img" aria-label="Bản đồ đường chạy hình vuông, hiển thị vị trí xe">
+          <path class="tape" d="M70 200V50H350V270H70V200"/>
+          <rect x="60" y="197" width="20" height="6" fill="#27394a"/>
+          <circle class="corner" id="c1" cx="70" cy="50" r="6"/><circle class="corner" id="c2" cx="350" cy="50" r="6"/>
+          <circle class="corner" id="c3" cx="350" cy="270" r="6"/><circle class="corner" id="c4" cx="70" cy="270" r="6"/>
+          <rect class="bin A" id="binA" x="190" y="30" width="40" height="40" rx="4"/><text class="binlbl" x="210" y="58">A</text>
+          <rect class="bin B" id="binB" x="330" y="140" width="40" height="40" rx="4"/><text class="binlbl" x="350" y="168">B</text>
+          <g id="car" transform="translate(70,200)"><circle class="halo" r="17"/><g id="carbody"><rect x="-11" y="-7" width="22" height="14" rx="3"/><path d="M11 -5L18 0L11 5Z"/></g></g>
+        </svg>
+      </div></div></div>
+
+      <div class="side">
+        <div class="panel"><h2>Điều khiển hệ thống</h2><div class="body">
+          <button class="btn" id="stop">■ Dừng xe / Đặt lại</button>
+          <div class="hint">Gửi lệnh dừng tới ESP32, đưa xe về trạng thái sẵn sàng.</div>
+        </div></div>
+        <div class="panel"><h2>Loại hàng vừa quét</h2><div class="body"><div class="big" id="goods">-</div></div></div>
+        <div class="panel"><h2>Trạng thái theo điểm đến</h2><div class="body">
+          <div class="lamp"><span class="dot" id="lA"></span><b>Điểm A</b><span id="tA">—</span></div>
+          <div class="lamp"><span class="dot" id="lB"></span><b>Điểm B</b><span id="tB">—</span></div>
+          <div class="hint">Suy ra từ trạng thái do ESP32 báo về.</div>
+        </div></div>
+      </div>
+
+      <div class="panel" id="events"><h2>Sự kiện gần đây</h2><div class="body"><table><tbody id="log-recent"></tbody></table></div></div>
+    </section>
+
+    <section class="page" id="page-log">
+      <div class="kpis">
+        <div class="panel"><h2>Tổng chuyến hoàn thành</h2><div class="body"><div class="big" id="k-total">0</div></div></div>
+        <div class="panel"><h2>Chuyến tới điểm A</h2><div class="body"><div class="big A" id="k-a">0</div></div></div>
+        <div class="panel"><h2>Chuyến tới điểm B</h2><div class="body"><div class="big B" id="k-b">0</div></div></div>
+      </div>
+      <div class="panel"><h2>Nhật ký sự kiện</h2>
+        <div class="body"><label><input type="checkbox" id="only-warn"> Chỉ hiện cảnh báo và lỗi</label></div>
+        <table><thead><tr><th>Thời gian</th><th>Mức</th><th>Nội dung</th></tr></thead><tbody id="log-all"></tbody></table></div>
+    </section>
+  </main>
+  <footer><span id="foot">—</span></footer>
+</div></div>
+
+<script>
+  const $ = (q) => document.querySelector(q);
+
+  // Trạng thái xe (stateName() trong firmware): [chữ hiển thị, màu chấm]
+  const ESP = { OFFLINE: ["Mất kết nối", "bad"], IDLE: ["Sẵn sàng", "ok"], MOVING: ["Đang chạy", "run"], UNLOADING: ["Đang đổ hàng", "warn"],
+                RETURNING: ["Đang quay về", "run"], ARRIVED: ["Đã tới đích", "ok"], ERROR: ["Lỗi, xe đã dừng", "bad"] };
+  // Giai đoạn (MODE_NAMES trong firmware)
+  const PHASE = { FOLLOW: "Bám line", NUDGE: "Phát hiện góc", SETTLE: "Dừng ổn định trước khi rẽ", TURN: "Đang rẽ góc", STRAIGHT: "Đi thẳng sau khi rẽ",
+                  TO_POINT: "Tiến tới điểm đổ hàng", UNLOAD_PUSH: "Servo đẩy hàng", UNLOAD_HOLD: "Chờ hàng rơi", UNLOAD_BACK: "Servo về vị trí nghỉ", HOME: "Tiến về vạch đích" };
+  // Mã lỗi (fail() trong firmware)
+  const REASON = { OBSTACLE: "Vật cản chặn quá lâu", LINE_LOST: "Mất line", TURN_FAIL: "Rẽ góc thất bại", POINT_MISSED: "Không thấy vạch điểm đổ hàng",
+                   HOME_MISSED: "Không thấy vạch đích", TIMEOUT: "Chuyến đi quá thời gian", NO_CONTACT: "Xe mất liên lạc với server" };
+  const TURNING = ["NUDGE", "SETTLE", "TURN"];
+  const LV = { info: "Thông tin", warn: "Cảnh báo", err: "Lỗi" };
+  const store = { conn: false, key: null, ack: null, since: Date.now(), sig: "",
+                  s: { last: null, car: "OFFLINE", phase: null, corners: null, log: [] } };
+
+  // Mỗi loại tin nhắn từ server có một hàm xử lý. Thêm chức năng mới: thêm một dòng ở đây.
+  const handlers = { state(m) { store.s = m; render(); } };
+
+  const level = (msg) => /không hợp lệ|đang bận/.test(msg) ? "warn" : /không phản hồi|OFFLINE|ERROR|thất bại|từ chối/.test(msg) ? "err" : "info";
+  const vi = (msg) => msg.replace(/\b(OFFLINE|IDLE|MOVING|UNLOADING|RETURNING|ARRIVED|ERROR)\b/g, (k) => ESP[k][0])
+                         .replace(/\b(OBSTACLE|LINE_LOST|TURN_FAIL|POINT_MISSED|HOME_MISSED|TIMEOUT|NO_CONTACT)\b/g, (k) => REASON[k]);
+
+  function fillLog(tbody, items) {
+    tbody.replaceChildren();
+    for (const e of items) {
+      const lv = level(e.msg), tr = document.createElement("tr");
+      tr.className = lv;
+      for (const text of [e.t, LV[lv], vi(e.msg)]) { const td = document.createElement("td"); td.textContent = text; tr.append(td); } // textContent: an toàn với nội dung QR bất kỳ
+      tbody.append(tr);
+    }
+  }
+
+  // ---------------- Bản đồ số ----------------
+  // Đường chạy theo chiều kim đồng hồ: Xuất phát -> G1 -> G2 -> G3 -> G4 -> Đích (cùng vạch xuất phát).
+  // Điểm A nằm sau góc 1 (cạnh trên), điểm B nằm sau góc 2 (cạnh phải). Đổi POINT_x_CORNER trong firmware thì sửa PT ở đây.
+  const W = [[70, 200], [70, 50], [350, 50], [350, 270], [70, 270], [70, 200]];
+  const LEN = W.slice(1).map((p, i) => Math.hypot(p[0] - W[i][0], p[1] - W[i][1]));
+  const CUM = LEN.reduce((a, l) => (a.push(a[a.length - 1] + l), a), [0]);
+  const HEAD = LEN.map((_, i) => Math.atan2(W[i + 1][1] - W[i][1], W[i + 1][0] - W[i][0]) * 180 / Math.PI);
+  const PT = { A: { edge: 1, f: 0.5 }, B: { edge: 2, f: 0.5 } };
+  const at = (k, p) => CUM[k] + LEN[k] * Math.min(Math.max(p, 0), 1);
+  const ease = (t, tau) => 1 - Math.exp(-t / tau);
+  let carL = 0, carHead = -90, lastFrame = 0;
+
+  // Ước lượng vị trí xe từ giai đoạn + số góc đã rẽ + thời gian đã ở giai đoạn đó (firmware không gửi toạ độ).
+  function target() {
+    const s = store.s, c = s.corners ?? 0, ph = s.phase, car = s.car, t = Date.now() - store.since;
+    const pt = PT[s.dest || s.last];
+    if (car === "IDLE") return { L: 0, k: 0 };
+    if (car === "ARRIVED") return { L: CUM[5], k: 4 };
+    if (!ph || !pt) return null;                                   // OFFLINE / ERROR: giữ nguyên vị trí cuối
+    if (TURNING.includes(ph)) return { L: at(c, 1), k: Math.min(c + (ph === "TURN" ? 1 : 0), 4) };
+    if (ph === "STRAIGHT") return { L: at(c, 0.06), k: c };
+    if (ph === "TO_POINT") return { L: at(pt.edge, pt.f * ease(t, 1500)), k: pt.edge };
+    if (ph.startsWith("UNLOAD")) return { L: at(pt.edge, pt.f), k: pt.edge };
+    if (ph === "HOME") return { L: at(4, 0.97 * ease(t, 3000)), k: 4 };
+    const p0 = car === "RETURNING" && c === pt.edge ? pt.f : 0;    // FOLLOW
+    return { L: at(c, p0 + (0.95 - p0) * ease(t, 4000)), k: c };
+  }
+
+  function frame(now) {
+    const dt = Math.min(now - (lastFrame || now), 100); lastFrame = now;
+    if (store.s.obstacle) store.since += dt;                       // xe đứng chờ vật cản: không cho "đi" tiếp
+    const tg = target();
+    if (tg) {
+      if (tg.L < carL - 40) carL = tg.L; else carL += (tg.L - carL) * (1 - Math.exp(-dt / 250));
+      carHead = HEAD[tg.k];
+    }
+    let k = 0; while (k < 4 && carL > CUM[k + 1]) k++;
+    const p = (carL - CUM[k]) / LEN[k], x = W[k][0] + (W[k + 1][0] - W[k][0]) * p, y = W[k][1] + (W[k + 1][1] - W[k][1]) * p;
+    $("#car").setAttribute("transform", `translate(${x.toFixed(1)},${y.toFixed(1)})`);
+    $("#carbody").setAttribute("transform", `rotate(${carHead})`);
+    requestAnimationFrame(frame);
+  }
+
+  function render() {
+    const { conn, s } = store, esp = ESP[s.car] || [s.car, ""];
+    const sig = [s.car, s.phase, s.corners].join("|");
+    if (sig !== store.sig) { store.sig = sig; store.since = Date.now(); }
+    const back = s.car === "RETURNING", c = s.corners ?? 0;
+    const phaseTxt = !s.phase ? "—" : (back ? "Quay về · " : "") + (PHASE[s.phase] || s.phase) + (TURNING.includes(s.phase) ? ` ${c + 1}/4` : ` · đã rẽ ${c}/4 góc`);
+
+    // thẻ trạng thái + đầu trang
+    const espDown = ["OFFLINE", "ERROR"].includes(s.car);
+    $("#dot-web").className = "dot " + (conn ? "ok" : "bad"); $("#web-txt").textContent = conn ? "Đã kết nối web" : "Mất kết nối web";
+    $("#d-srv").className = "dot " + (conn ? "ok" : "bad"); $("#c-srv").textContent = conn ? "Đang chạy" : "Mất kết nối";
+    $("#d-esp").className = "dot " + (!conn ? "" : espDown ? "bad" : "ok"); $("#c-esp").textContent = !conn ? "—" : s.car === "OFFLINE" ? "Không phản hồi" : "Đã kết nối";
+    const wait = !!s.obstacle && ["MOVING", "RETURNING"].includes(s.car);   // xe đang dừng chờ vật cản
+    $("#d-car").className = "dot " + (wait ? "warn blink" : esp[1]); $("#c-car").textContent = wait ? "Có vật cản, xe dừng chờ" : esp[0];
+    $("#c-ph").textContent = phaseTxt;
+    $("#foot").textContent = conn ? "Đã kết nối server" : "Mất kết nối server, số liệu đang hiển thị là dữ liệu cũ";
+    $("#foot").className = conn ? "" : "bad";
+
+    // cảnh báo
+    store.key = !conn ? "server" : s.car === "OFFLINE" ? "esp" : s.car === "ERROR" ? "err" : null;
+    if (!store.key) store.ack = null;
+    const why = REASON[s.reason] || s.reason || "xem nhật ký";
+    $("#alarm").classList.toggle("show", !!store.key && store.key !== store.ack);
+    $("#alarm-txt").textContent = { server: "Mất kết nối với server", esp: "ESP32 mất kết nối", err: "Xe gặp lỗi và đã dừng: " + why }[store.key] || "";
+
+    $("#goods").textContent = s.last || "-"; $("#goods").className = "big " + (s.last || "");
+
+    // số chuyến hoàn thành (trang Nhật ký; chỉ chuyến về tới vạch đích, không tính chuyến lỗi)
+    const tr = s.trips || { A: 0, B: 0 };
+    $("#k-total").textContent = (tr.A || 0) + (tr.B || 0); $("#k-a").textContent = tr.A || 0; $("#k-b").textContent = tr.B || 0;
+
+    // bản đồ + đèn điểm đến
+    const moving = ["MOVING", "UNLOADING", "RETURNING"].includes(s.car), dest = s.dest && s.dest !== "-" ? s.dest : s.last;
+    ["A", "B"].forEach((x) => {
+      const mine = moving && dest === x, unl = mine && s.car === "UNLOADING";
+      $("#bin" + x).classList.toggle("on", mine); $("#bin" + x).classList.toggle("blink", unl);
+      $("#l" + x).className = "dot " + (unl ? "warn" : mine ? "run" : "");
+      $("#t" + x).textContent = unl ? "Đang đổ hàng" : mine ? "Điểm đến của chuyến này" : "—";
+    });
+    [1, 2, 3, 4].forEach((i) => $("#c" + i).classList.toggle("done", !!s.phase && c >= i));
+    $("#map-lot").textContent = s.last ? "Điểm đến " + s.last : "—";
+    $("#car").setAttribute("class", s.car === "ERROR" ? "err" : s.car === "OFFLINE" ? "off" : "");
+
+    const items = s.log.slice().reverse();
+    fillLog($("#log-recent"), items.slice(0, 5));
+    fillLog($("#log-all"), items.filter((e) => !$("#only-warn").checked || level(e.msg) !== "info"));
+  }
+
+  function showPage(id) {
+    if (!$("#page-" + id)) id = "overview";
+    document.querySelectorAll(".page").forEach((p) => p.classList.toggle("on", p.id === "page-" + id));
+    document.querySelectorAll(".tabs button[data-page]").forEach((b) => b.setAttribute("aria-current", b.dataset.page === id ? "page" : "false"));
+    location.hash = id;
+  }
+  document.querySelectorAll(".tabs button[data-page]").forEach((b) => (b.onclick = () => showPage(b.dataset.page)));
+  $("#only-warn").onchange = render;
+  $("#ack").onclick = () => { store.ack = store.key; render(); };
+  $("#stop").onclick = () => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: "stop" })); };
+  showPage(location.hash.slice(1));
+
+  setInterval(() => ($("#clock").textContent = new Date().toLocaleTimeString("vi-VN", { hour12: false })), 1000);
+
+  let ws;
+  function connect() {
+    ws = new WebSocket(`wss://${location.host}/ws`);
+    ws.onopen = () => { store.conn = true; render(); };
+    ws.onclose = () => { store.conn = false; render(); setTimeout(connect, 2000); };
+    ws.onmessage = (e) => { const m = JSON.parse(e.data); (handlers[m.type] || (() => {}))(m); };
+  }
+  render();
+  connect();
+  requestAnimationFrame(frame);
+</script>
+</body>
+</html>
